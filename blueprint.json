@@ -1,0 +1,14 @@
+{
+  "project": "Student Marks Prediction",
+  "dataset": "Features: attendance, study hours",
+  "target": "final score",
+  "model": "XGBoost",
+  "pipeline": [
+    "Data Collection",
+    "Data Cleaning",
+    "Feature Engineering",
+    "Model Training",
+    "Model Evaluation",
+    "Deployment"
+  ]
+}
