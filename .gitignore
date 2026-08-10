@@ -1,13 +1,1 @@
-.DS_Store
 
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-
-# Environment
-.env
-
-# Local databases / generated data
-*.db
-chroma_db/
