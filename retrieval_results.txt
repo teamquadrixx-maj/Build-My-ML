@@ -1,0 +1,57 @@
+2026-08-07 10:46:19.037356: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+INFO:sentence_transformers.base.model:No device provided, using mps
+INFO:sentence_transformers.base.model:Loading SentenceTransformer model from sentence-transformers/all-MiniLM-L6-v2.
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/huggingface_hub/file_download.py:949: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/Users/apple/Desktop/college/major project/BuildMyML/ai/rag/embeddings/embedding_service.py:34: FutureWarning: The `get_sentence_embedding_dimension` method has been renamed to `get_embedding_dimension`.
+  self.dimension = self.model.get_sentence_embedding_dimension()
+WARNING:ai.rag.retrieval.vector_store:SUPABASE_URL or SUPABASE_KEY environment variables not found.
+INFO:ai.rag.retrieval.retriever:Generating embedding for query: 'What is the elbow method used for in clustering?'
+
+--- Query 1: 'What is the elbow method used for in clustering?' ---
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:01<00:00,  1.39s/it]Batches: 100%|██████████| 1/1 [00:01<00:00,  1.39s/it]
+INFO:ai.rag.retrieval.retriever:Searching vector database for top 3 matches...
+ERROR:ai.rag.retrieval.vector_store:Supabase client is not initialized. Falling back to local offline search.
+INFO:sentence_transformers.base.model:No device provided, using mps
+INFO:sentence_transformers.base.model:Loading SentenceTransformer model from sentence-transformers/all-MiniLM-L6-v2.
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/huggingface_hub/file_download.py:949: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/Users/apple/Desktop/college/major project/BuildMyML/ai/rag/embeddings/embedding_service.py:34: FutureWarning: The `get_sentence_embedding_dimension` method has been renamed to `get_embedding_dimension`.
+  self.dimension = self.model.get_sentence_embedding_dimension()
+INFO:ai.rag.retrieval.retriever:Retrieved 3 matching chunks.
+INFO:ai.rag.retrieval.retriever:Generating embedding for query: 'How does a neural network train?'
+  1. Score: 0.8345 | Preview: a suitable number of clusters.  ### Elbow Method  The Elbow Method evaluates how within-cluster variation changes as the...
+  2. Score: 0.5709 | Preview: into a predefined number of clusters.  The algorithm attempts to minimise the distance between observations and the cent...
+  3. Score: 0.5355 | Preview: # Clustering  ## Overview  Clustering is an unsupervised machine learning technique used to group similar data points to...
+
+--- Query 2: 'How does a neural network train?' ---
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  7.96it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  7.95it/s]
+INFO:ai.rag.retrieval.retriever:Searching vector database for top 3 matches...
+ERROR:ai.rag.retrieval.vector_store:Supabase client is not initialized. Falling back to local offline search.
+INFO:sentence_transformers.base.model:No device provided, using mps
+INFO:sentence_transformers.base.model:Loading SentenceTransformer model from sentence-transformers/all-MiniLM-L6-v2.
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/huggingface_hub/file_download.py:949: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/Users/apple/Desktop/college/major project/BuildMyML/ai/rag/embeddings/embedding_service.py:34: FutureWarning: The `get_sentence_embedding_dimension` method has been renamed to `get_embedding_dimension`.
+  self.dimension = self.model.get_sentence_embedding_dimension()
+INFO:ai.rag.retrieval.retriever:Retrieved 3 matching chunks.
+INFO:ai.rag.retrieval.retriever:Generating embedding for query: 'What are the best metrics for classification tasks?'
+  1. Score: 0.4105 | Preview: # Classification  ## Overview  Classification is a supervised machine learning task where the objective is to predict a ...
+  2. Score: 0.3666 | Preview: training a classifier, inspect:  - Missing values - Categorical variables - Numerical feature scales - Duplicate observa...
+  3. Score: 0.3608 | Preview: training a regression model, inspect:  - Missing values - Categorical features - Numerical feature scales - Outliers - D...
+
+--- Query 3: 'What are the best metrics for classification tasks?' ---
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  8.19it/s]Batches: 100%|██████████| 1/1 [00:00<00:00,  8.18it/s]
+INFO:ai.rag.retrieval.retriever:Searching vector database for top 3 matches...
+ERROR:ai.rag.retrieval.vector_store:Supabase client is not initialized. Falling back to local offline search.
+INFO:sentence_transformers.base.model:No device provided, using mps
+INFO:sentence_transformers.base.model:Loading SentenceTransformer model from sentence-transformers/all-MiniLM-L6-v2.
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/huggingface_hub/file_download.py:949: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+/Users/apple/Desktop/college/major project/BuildMyML/ai/rag/embeddings/embedding_service.py:34: FutureWarning: The `get_sentence_embedding_dimension` method has been renamed to `get_embedding_dimension`.
+  self.dimension = self.model.get_sentence_embedding_dimension()
+INFO:ai.rag.retrieval.retriever:Retrieved 3 matching chunks.
+  1. Score: 0.6976 | Preview: the highest value for one arbitrary metric.  ---  # Classification Metrics  Classification metrics evaluate models that ...
+  2. Score: 0.6488 | Preview: several metrics.  Example:  Fraud detection:  Primary objective: Recall  Secondary considerations: Precision F1 ROC-AUC ...
+  3. Score: 0.6353 | Preview: can actually support business decisions.  ---  # Choosing the Correct Metric  The metric should match the objective.  ##...

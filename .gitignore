@@ -1,1 +1,30 @@
+# local environment
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+.envrc
+
+# editor / OS artifacts
+.DS_Store
+**/.DS_Store
+.vscode/
+Users/
+
+# Python and generated files
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.db
+*.sqlite3
+*.log
+
+# app generated storage
+backend/buildmyml.db
+blueprint.db
+chroma_db/
+storage/
+frontend/test-results/
+frontend/dist/
 

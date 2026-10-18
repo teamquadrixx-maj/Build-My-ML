@@ -104,4 +104,35 @@ if __name__ == "__main__":
         print(f"First 5 numerical values of its embedding:")
         print([round(v, 6) for v in first.embedding[:5]])
         
+        print("\n--- INSERTING INTO VECTOR STORE ---")
+        from ai.rag.retrieval.vector_store import VectorStore
+        store = VectorStore(table_name="document_chunks")
+        
+        dicts_to_insert = [
+            {
+                "chunk_id": c.chunk_id,
+                "document_id": c.document_id,
+                "content": c.content,
+                "source": c.source,
+                "metadata": c.metadata,
+                "embedding": c.embedding
+            } for c in embedded_chunks
+        ]
+        
+        success = store.insert_chunks(dicts_to_insert)
+        if success:
+            print(f"[SUCCESS] Stored {len(dicts_to_insert)} generated embeddings in Supabase table '{store.table_name}'.")
+        else:
+            print("[FAILED] Failed to store embeddings.")
+            
+        print("\n--- VERIFYING INSERTION ---")
+        if store.check_connection():
+            # Query count of stored records
+            response = store.supabase.table(store.table_name).select("chunk_id", count="exact").execute()
+            if hasattr(response, 'count') and response.count is not None:
+                record_count = response.count
+            else:
+                record_count = len(response.data) # fallback if count property isn't available
+            print(f"[VERIFIED] There are currently {record_count} total records in '{store.table_name}'.")
+        
     print("-----------------------\n")

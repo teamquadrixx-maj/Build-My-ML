@@ -1,0 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Newsreader:opsz,wght@8..72,400;8..72,500;8..72,600;8..72,700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #1f1b16;
+  background: #f6f1e7;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #f6f1e7;
+  color: #1f1b16;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Newsreader', serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+code,
+pre,
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+button,
+input,
+textarea,
+a {
+  transition: all 200ms ease;
+}
+
+.reveal-panel {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: riseIn 420ms ease-out forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+.flow-section .flow-arrow {
+  opacity: 0;
+  stroke-dasharray: 260;
+  stroke-dashoffset: 260;
+}
+
+.flow-section.is-visible .flow-arrow {
+  animation: drawArrow 1s ease-out forwards;
+}
+
+.flow-section.is-visible .flow-arrow--loop {
+  animation: drawLoop 1.2s ease-out 1 forwards;
+}
+
+@keyframes riseIn {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drawArrow {
+  0% {
+    opacity: 0;
+    stroke-dashoffset: 260;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes drawLoop {
+  0% {
+    opacity: 0;
+    stroke-dashoffset: 200;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .reveal-panel,
+  .flow-section .flow-arrow,
+  .flow-section.is-visible .flow-arrow,
+  .flow-section.is-visible .flow-arrow--loop {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+}
