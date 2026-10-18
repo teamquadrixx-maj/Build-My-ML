@@ -1,6 +1,9 @@
 import logging
 import os
+from pathlib import Path
 from typing import Any, Dict, List
+
+from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,12 +20,7 @@ class VectorStore:
         """Initialize the Supabase client using the required environment variables."""
         self.table_name = table_name
 
-        try:
-            from dotenv import load_dotenv
-
-            load_dotenv()
-        except ImportError:  # pragma: no cover
-            pass
+        load_dotenv(Path(__file__).resolve().parents[3] / "backend" / ".env")
 
         self.url = os.environ.get("SUPABASE_URL")
         self.key = os.environ.get("SUPABASE_KEY")

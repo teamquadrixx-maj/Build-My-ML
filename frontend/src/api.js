@@ -4,8 +4,7 @@ const getBaseUrl = () => import.meta.env.VITE_API_BASE_URL || fallbackBaseUrl
 
 export const API_CONTRACT = {
   sessionStart: '/api/sessions',
-  sessionClarify: '/api/sessions/:sessionId/clarify',
-  blueprintRequest: '/api/blueprints',
+  blueprintRequest: '/blueprints',
   blueprintFetch: '/api/blueprints/:blueprintId',
 }
 
@@ -39,13 +38,7 @@ const fixtureStages = [
   {
     id: 'requirement-analysis',
     title: 'Requirement analysis',
-    description: 'Requirements are structured and missing information is flagged.',
-    status: 'Implemented',
-  },
-  {
-    id: 'clarification-loop',
-    title: 'Clarification loop',
-    description: 'The Clarification Agent asks for missing details when the task is unclear.',
+    description: 'Requirements are structured and the strongest project objective is defined.',
     status: 'Implemented',
   },
   {
@@ -87,6 +80,15 @@ const fixtureStages = [
 ]
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const DEFAULT_REQUEST_TIMEOUT_MS = 15000
+
+const isNetworkFailure = (error) => {
+  if (!error) return false
+  if (error.name === 'AbortError') return true
+  if (error.isNetworkFailure) return true
+  if (error.status === 0 || error.status === 408) return true
+  return /Failed to fetch|NetworkError|ERR_CONNECTION_REFUSED|timed out|fetch/i.test(error.message || '')
+}
 
 export const buildFixtureBlueprint = (prompt = '') => {
   const trimmedPrompt = (prompt || '').trim()
@@ -144,20 +146,59 @@ export const buildFixtureBlueprint = (prompt = '') => {
   }
 }
 
-async function requestJson(url, options = {}) {
-  const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-    ...options,
-  })
+async function requestJson(url, options = {}, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs)
 
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    throw new Error(data.message || 'The request failed.')
+  console.info('[BuildMyML] Request start', { url, method: options.method || 'GET', timeoutMs })
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+      ...options,
+      signal: controller.signal,
+    })
+
+    console.info('[BuildMyML] Request response', { url, status: response.status, ok: response.ok })
+
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      const message = data?.detail || data?.message || data?.error || `Request failed with HTTP ${response.status}.`
+      const error = new Error(message)
+      error.status = response.status
+      throw error
+    }
+
+    return data
+  } catch (error) {
+    const networkFailure = isNetworkFailure(error)
+    console.error('[BuildMyML] Request failed', {
+      url,
+      status: error?.status ?? (networkFailure ? 0 : 'unknown'),
+      error: error?.message || 'Unknown error',
+    })
+
+    if (networkFailure && error?.name === 'AbortError') {
+      const timedOutError = new Error(`Request timed out after ${timeoutMs}ms.`)
+      timedOutError.status = 408
+      timedOutError.isNetworkFailure = true
+      throw timedOutError
+    }
+
+    if (networkFailure) {
+      const networkError = new Error(error?.message || 'The backend is not reachable.')
+      networkError.isNetworkFailure = true
+      networkError.status = 0
+      throw networkError
+    }
+
+    throw error
+  } finally {
+    clearTimeout(timeoutHandle)
   }
-  return data
 }
 
 export const startSession = async (idea) => {
@@ -173,41 +214,81 @@ export const startSession = async (idea) => {
       session_id: 'fixture-session',
       idea,
       requirements: { task: 'other' },
-      clarification_questions: [],
-      source: 'fixture',
-    }
-  }
-}
-
-export const answerClarification = async (sessionId, questionId, answer) => {
-  try {
-    return await requestJson(`${getBaseUrl()}${API_CONTRACT.sessionClarify.replace(':sessionId', sessionId)}`, {
-      method: 'POST',
-      body: JSON.stringify({ session_id: sessionId, question_id: questionId, answer }),
-    })
-  } catch (error) {
-    return {
-      status: 'fixture',
-      message: 'Clarification answers are not available because the backend is unreachable.',
       source: 'fixture',
     }
   }
 }
 
 export const requestBlueprint = async ({ session_id, idea, answers = {} }) => {
+  const requestUrl = `${getBaseUrl()}${API_CONTRACT.blueprintRequest}`
+
   try {
-    return await requestJson(`${getBaseUrl()}${API_CONTRACT.blueprintRequest}`, {
+    return await requestJson(requestUrl, {
       method: 'POST',
       body: JSON.stringify({ session_id, idea, answers }),
-    })
+    }, 15000)
   } catch (error) {
+    if (isNetworkFailure(error)) {
+      return {
+        status: 'fixture',
+        message: 'Showing sample data because the backend is not reachable.',
+        blueprint: buildFixtureBlueprint(idea),
+        source: 'fixture',
+        stage_statuses: {
+          requirement_analysis: 'sample',
+          rag_retrieval: 'sample',
+          gemini_recommendation: 'sample',
+          blueprint_generation: 'sample',
+        },
+        stage_outputs: [
+          { name: 'requirement_analysis', status: 'sample', explanation: 'Sample data is shown because the backend is not reachable.', data: {} },
+          { name: 'rag_retrieval', status: 'sample', explanation: 'Sample data is shown because the backend is not reachable.', data: {} },
+          { name: 'gemini_recommendation', status: 'sample', explanation: 'Sample data is shown because the backend is not reachable.', data: {} },
+          { name: 'blueprint_generation', status: 'sample', explanation: 'Sample data is shown because the backend is not reachable.', data: {} },
+        ],
+      }
+    }
+
     return {
-      status: 'fixture',
-      message: 'The blueprint pipeline is unavailable; returning fixture data instead.',
-      blueprint: buildFixtureBlueprint(idea),
-      source: 'fixture',
+      status: 'failed',
+      failed_stage: 'gemini_recommendation',
+      error: error?.message || 'The blueprint generation failed.',
+      message: error?.message || 'The blueprint generation failed.',
+      stage_statuses: {
+        requirement_analysis: 'done',
+        rag_retrieval: 'done',
+        gemini_recommendation: 'failed',
+        blueprint_generation: 'failed',
+      },
+      stage_outputs: [
+        { name: 'requirement_analysis', status: 'completed', explanation: 'The requirement stage ran successfully.', data: {} },
+        { name: 'rag_retrieval', status: 'completed', explanation: 'The retrieval stage ran successfully.', data: {} },
+        { name: 'gemini_recommendation', status: 'failed', explanation: error?.message || 'The blueprint generation failed.', data: { error: error?.message || 'The blueprint generation failed.' } },
+        { name: 'blueprint_generation', status: 'failed', explanation: 'Blueprint assembly could not finish because the recommendation stage failed.', data: { error: error?.message || 'The blueprint generation failed.' } },
+      ],
     }
   }
+}
+
+export const exportBlueprint = async (blueprintId, format = 'json') => {
+  const url = `${getBaseUrl()}/blueprints/${blueprintId}/export?format=${encodeURIComponent(format)}`
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Export failed with status ${response.status}.`)
+  }
+  if (format === 'zip') {
+    const blob = await response.blob()
+    const downloadUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = `${blueprintId}.zip`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(downloadUrl)
+    return { ok: true }
+  }
+  return response.text()
 }
 
 export const fetchBlueprint = async (blueprintId) => {
@@ -317,6 +398,16 @@ const runPlaceholderBlueprintFlow = async (prompt = '', onStageUpdate = () => {}
   return blueprint
 }
 
+const mapStageStatus = (stageKey) => {
+  const map = {
+    requirement_analysis: 'requirement-analysis',
+    rag_retrieval: 'rag-retrieval',
+    gemini_recommendation: 'gemini-recommendation',
+    blueprint_generation: 'blueprint-generation',
+  }
+  return map[stageKey] || stageKey
+}
+
 export const generateBlueprint = async (prompt, onStageUpdate = () => {}) => {
   const trimmedPrompt = (prompt ?? '').trim()
   if (!trimmedPrompt) {
@@ -324,46 +415,94 @@ export const generateBlueprint = async (prompt, onStageUpdate = () => {}) => {
   }
 
   try {
-    const session = await startSession(trimmedPrompt)
-    if (session.status === 'fixture') {
-      const blueprint = buildFixtureBlueprint(trimmedPrompt)
-      onStageUpdate({ type: 'blueprint', blueprint })
-      return { ...blueprint, status: 'fixture', source: 'fixture' }
-    }
-
-    if (session.status === 'clarification_required' || (session.clarification_questions && session.clarification_questions.length > 0)) {
-      onStageUpdate({ type: 'clarification', questions: session.clarification_questions })
-      return {
-        status: 'clarification_required',
-        ...session,
-        source: 'backend',
-      }
-    }
-
     const blueprintResult = await requestBlueprint({
-      session_id: session.session_id,
+      session_id: 'live-session',
       idea: trimmedPrompt,
       answers: {},
     })
 
-    if (blueprintResult.status === 'error' || blueprintResult.status === 'partial') {
-      const fallback = buildFixtureBlueprint(trimmedPrompt)
-      onStageUpdate({ type: 'blueprint', blueprint: fallback })
-      return { ...fallback, source: 'fixture', status: 'fixture', message: blueprintResult.message || 'The pipeline is unavailable; fixture data was returned.' }
+    if (blueprintResult.stage_statuses) {
+      Object.entries(blueprintResult.stage_statuses).forEach(([stageKey, stageStatus]) => {
+        const stageId = mapStageStatus(stageKey)
+        const normalizedStatus = stageStatus === 'done' || stageStatus === 'completed' ? 'done' : stageStatus === 'failed' ? 'failed' : stageStatus === 'sample' ? 'sample' : stageStatus === 'skipped' ? 'Planned' : 'waiting'
+        onStageUpdate({
+          stageId,
+          status: normalizedStatus,
+          message: stageStatus === 'failed'
+            ? (blueprintResult.error || blueprintResult.message || 'Stage failed.')
+            : stageStatus === 'sample'
+              ? 'Sample output shown while the backend is unreachable.'
+              : stageStatus === 'skipped'
+                ? 'This stage is planned and intentionally skipped.'
+                : `${stageId.replace(/-/g, ' ')} completed.`,
+        })
+      })
+    }
+
+    if (blueprintResult.stage_outputs && blueprintResult.stage_outputs.length > 0) {
+      blueprintResult.stage_outputs.forEach((stageOutput) => {
+        const stageId = mapStageStatus(stageOutput.name)
+        const normalizedStatus = stageOutput.status === 'completed' ? 'done' : stageOutput.status === 'failed' ? 'failed' : stageOutput.status === 'sample' ? 'sample' : stageOutput.status === 'skipped' ? 'Planned' : 'waiting'
+        onStageUpdate({
+          stageId,
+          status: normalizedStatus,
+          message: stageOutput.explanation || stageOutput.data?.error || 'Stage updated.',
+        })
+      })
+    }
+
+    if (blueprintResult.status === 'fixture') {
+      const blueprint = blueprintResult.blueprint || buildFixtureBlueprint(trimmedPrompt)
+      onStageUpdate({ type: 'blueprint', blueprint, source: 'fixture' })
+      return {
+        ...blueprint,
+        status: 'fixture',
+        source: 'fixture',
+        message: blueprintResult.message || 'Showing sample data because the backend is not reachable.',
+        stage_outputs: blueprintResult.stage_outputs || [],
+      }
+    }
+
+    if (blueprintResult.status === 'failed') {
+      const message = blueprintResult.error || blueprintResult.message || 'The blueprint generation failed.'
+      onStageUpdate({
+        stageId: mapStageStatus(blueprintResult.failed_stage || 'gemini_recommendation'),
+        status: 'failed',
+        message,
+      })
+      return {
+        status: 'failed',
+        message,
+        failed_stage: blueprintResult.failed_stage,
+        source: 'backend',
+        stage_outputs: blueprintResult.stage_outputs || [],
+      }
     }
 
     if (blueprintResult.blueprint) {
-      onStageUpdate({ type: 'blueprint', blueprint: blueprintResult.blueprint })
-      return { ...blueprintResult.blueprint, source: 'backend', status: 'ready' }
+      onStageUpdate({ type: 'blueprint', blueprint: blueprintResult.blueprint, source: 'backend' })
+      return {
+        ...blueprintResult.blueprint,
+        source: 'backend',
+        status: 'ready',
+        stage_statuses: blueprintResult.stage_statuses,
+        stage_outputs: blueprintResult.stage_outputs || [],
+      }
     }
 
     const fallback = buildFixtureBlueprint(trimmedPrompt)
-    onStageUpdate({ type: 'blueprint', blueprint: fallback })
-    return { ...fallback, source: 'fixture', status: 'fixture' }
+    onStageUpdate({ type: 'blueprint', blueprint: fallback, source: 'fixture' })
+    return { ...fallback, source: 'fixture', status: 'fixture', message: 'Showing sample data because the backend is not reachable.', stage_outputs: blueprintResult.stage_outputs || [] }
   } catch (error) {
     const fallback = buildFixtureBlueprint(trimmedPrompt)
-    onStageUpdate({ type: 'blueprint', blueprint: fallback })
-    return { ...fallback, source: 'fixture', status: 'fixture', message: error.message || 'The backend is unavailable.' }
+    onStageUpdate({ type: 'blueprint', blueprint: fallback, source: 'fixture' })
+    return {
+      ...fallback,
+      source: 'fixture',
+      status: 'fixture',
+      message: 'Showing sample data because the backend is not reachable.',
+      stage_outputs: [],
+    }
   }
 }
 

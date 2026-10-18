@@ -55,12 +55,23 @@ class BlueprintRequest(BaseModel):
     answers: Dict[str, str] = Field(default_factory=dict)
 
 
+class StageOutput(BaseModel):
+    name: str
+    status: str
+    explanation: str
+    data: Dict[str, Any] = Field(default_factory=dict)
+
+
 class BlueprintResponse(BaseModel):
     status: str
     blueprint_id: Optional[str] = None
     blueprint: Optional[Dict[str, Any]] = None
     message: Optional[str] = None
     critic_status: str = "planned"
+    failed_stage: Optional[str] = None
+    error: Optional[str] = None
+    stage_statuses: Dict[str, str] = Field(default_factory=dict)
+    stage_outputs: List[StageOutput] = Field(default_factory=list)
 
 
 class SessionStartResponse(SessionState):

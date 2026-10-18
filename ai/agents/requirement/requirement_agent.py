@@ -9,15 +9,15 @@ class RequirementAgent:
         self.llm = llm or GeminiProvider()
 
     def run(self, idea: str) -> dict[str, Any]:
-        prompt = f"""
+        prompt = """
 You are the Requirement Agent for BuildMyML.
 Turn the user idea into a structured ML brief.
 Return valid JSON only.
 
 User idea:
-{idea}
+%s
 
-Return:
+Return a JSON object with this shape:
 {
   "status": "ready" | "needs_clarification",
   "project_goal": "...",
@@ -33,7 +33,7 @@ Return:
       "business_context": "..."
   }
 }
-"""
+""" % idea
         payload = self.llm.generate_json(prompt)
         if payload.get("status") == "needs_clarification":
             return payload

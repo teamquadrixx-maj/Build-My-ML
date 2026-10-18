@@ -3,7 +3,6 @@ import { getPipelineStages } from '../api'
 
 const connectionPairs = [
   ['user-input', 'requirement-analysis'],
-  ['requirement-analysis', 'clarification-loop'],
   ['requirement-analysis', 'rag-preprocessing'],
   ['rag-preprocessing', 'rag-retrieval'],
   ['rag-retrieval', 'gemini-recommendation'],
@@ -81,23 +80,23 @@ export default function HowItWorksPage() {
 
       setPaths(nextPaths)
 
-      const clarificationNode = stageRefs.current['clarification-loop']
-      const userInputNode = stageRefs.current['user-input']
-      if (!clarificationNode || !userInputNode) {
+      const criticNode = stageRefs.current['critic-check']
+      const requirementNode = stageRefs.current['requirement-analysis']
+      if (!criticNode || !requirementNode) {
         setLoopPath(null)
         return
       }
 
-      const fromRect = clarificationNode.getBoundingClientRect()
-      const toRect = userInputNode.getBoundingClientRect()
+      const fromRect = criticNode.getBoundingClientRect()
+      const toRect = requirementNode.getBoundingClientRect()
       const startX = fromRect.left - svgRect.left + fromRect.width * 0.5
-      const startY = fromRect.top - svgRect.top + fromRect.height * 0.85
-      const endX = toRect.right - svgRect.left - 12
-      const endY = toRect.top - svgRect.top + toRect.height * 0.25
+      const startY = fromRect.top - svgRect.top + fromRect.height * 0.15
+      const endX = toRect.right - svgRect.left - 10
+      const endY = toRect.top - svgRect.top + toRect.height * 0.2
 
       setLoopPath({
-        id: 'clarification-loop',
-        path: `M ${startX} ${startY} C ${startX + 30} ${startY + 110}, ${endX - 60} ${endY - 40}, ${endX} ${endY}`,
+        id: 'critic-revision-loop',
+        path: `M ${startX} ${startY} C ${startX - 90} ${startY - 115}, ${endX - 120} ${endY - 65}, ${endX} ${endY}`,
       })
     }
 
@@ -113,7 +112,7 @@ export default function HowItWorksPage() {
           <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.2em] text-[#7A7064]">Methodology</p>
           <h1 className="text-4xl text-[#1F1B16] sm:text-5xl">How the BuildMyML workflow works</h1>
           <p className="mt-3 max-w-2xl text-base leading-7 text-[#7A7064]">
-            The workflow begins with a plain-language idea, adds requirement analysis and clarification when details are missing, pulls from a curated knowledge base, and ends with a recommendation blueprint.
+            The workflow begins with a plain-language idea, adds requirement analysis and retrieval from the curated knowledge base, and ends with a recommendation blueprint.
           </p>
         </header>
 
@@ -162,7 +161,6 @@ export default function HowItWorksPage() {
             <div className="relative z-10 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {stages.map((stage, index) => {
                 const badgeClass = statusStyles[stage.status] || statusStyles.Planned
-                const isClarification = stage.id === 'clarification-loop'
 
                 return (
                   <div
@@ -170,11 +168,7 @@ export default function HowItWorksPage() {
                     ref={(node) => {
                       if (node) stageRefs.current[stage.id] = node
                     }}
-                    className={`reveal-panel rounded-[16px] border p-4 ${
-                      isClarification
-                        ? 'border-dashed border-[#B5532F] bg-[#FFFCF5]'
-                        : 'border-[#E4DCCB] bg-[#FFFCF5]'
-                    }`}
+                    className="reveal-panel rounded-[16px] border border-[#E4DCCB] bg-[#FFFCF5] p-4"
                     style={{ animationDelay: `${index * 70}ms` }}
                   >
                     <div className="mb-3 flex items-center justify-between gap-2">

@@ -8,18 +8,18 @@ class ClarificationAgent:
         self.llm = llm or GeminiProvider()
 
     def run(self, requirements: dict[str, Any], answers: dict[str, str]) -> dict[str, Any]:
-        prompt = f"""
+        prompt = """
 You are the Clarification Agent for BuildMyML.
 Use the current requirements and the user answers to decide whether the brief is ready.
 Return valid JSON only.
 
 Requirements:
-{requirements}
+%s
 
 Answers:
-{answers}
+%s
 
-Return:
+Return a JSON object with this shape:
 {
   "status": "ready" | "needs_clarification",
   "missing_information": ["..."],
@@ -33,7 +33,7 @@ Return:
       "business_context": "..."
   }
 }
-"""
+""" % (requirements, answers)
         payload = self.llm.generate_json(prompt)
         payload.setdefault("status", "ready")
         payload.setdefault("missing_information", [])

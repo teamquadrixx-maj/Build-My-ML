@@ -1,18 +1,30 @@
-import { useEffect, useState } from 'react'
-import { generateBlueprint, getConversation, getPipelineStages } from '../api'
+import { useEffect, useMemo, useState } from 'react'
+import { exportBlueprint, generateBlueprint, getConversation, getPipelineStages } from '../api'
 
 const exampleIdeas = [
-  'I want to build a machine learning project that predicts customer churn for a telecom company.',
-  'I want to build a machine learning project that forecasts product demand for a retail catalog.',
-  'I want to build a clustering project that groups support tickets into recurring issue categories.',
+  {
+    category: 'Fraud detection',
+    text: 'I want to build a system that flags suspicious transactions early so small banks can warn customers before money is lost.',
+  },
+  {
+    category: 'Public services',
+    text: 'I want to build a tool that checks which government schemes a citizen is eligible for and explains the benefits they can claim.',
+  },
+  {
+    category: 'Agriculture',
+    text: 'I want to build a system that detects crop diseases from leaf photos and gives farmers simple treatment advice.',
+  },
+  {
+    category: 'Document verification',
+    text: 'I want to build a system that detects forged or altered documents such as certificates and ID cards.',
+  },
 ]
-
-const clarificationChoices = ['Customer churn', 'Demand forecast', 'Support ticket clustering']
 
 const stageStatusStyles = {
   Planned: 'border-[#7A7064] bg-[#F3EFE8] text-[#7A7064]',
   'In progress': 'border-[#B5532F] bg-[#FBEFEA] text-[#B5532F]',
   Implemented: 'border-[#5C7A4B] bg-[#E9EFE2] text-[#5C7A4B]',
+  Sample: 'border-[#B7B2A8] bg-[#F2EFEA] text-[#6F675F]',
   failed: 'border-[#A4422A] bg-[#FDEAE7] text-[#A4422A]',
 }
 
@@ -20,6 +32,8 @@ const normalizeStageStatus = (status) => {
   if (status === 'running') return 'In progress'
   if (status === 'done') return 'Implemented'
   if (status === 'waiting') return 'Planned'
+  if (status === 'sample') return 'Sample'
+  if (status === 'Sample') return 'Sample'
   return status || 'Planned'
 }
 
@@ -29,7 +43,14 @@ export default function ChatPage() {
   const [pipelineStages, setPipelineStages] = useState([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState('')
+  const [generationErrorTone, setGenerationErrorTone] = useState('neutral')
+  const [isFixtureMode, setIsFixtureMode] = useState(false)
   const [generatedBlueprint, setGeneratedBlueprint] = useState(null)
+  const [expandedStages, setExpandedStages] = useState({})
+  const [selectedDataset, setSelectedDataset] = useState(null)
+  const [exportState, setExportState] = useState('idle')
+
+  const stageOutputs = useMemo(() => generatedBlueprint?.stage_outputs || [], [generatedBlueprint])
 
   useEffect(() => {
     const load = async () => {
@@ -79,6 +100,8 @@ export default function ChatPage() {
 
     setIsGenerating(true)
     setGenerationError('')
+    setGenerationErrorTone('neutral')
+    setIsFixtureMode(false)
     setGeneratedBlueprint(null)
 
     const stageList = await getPipelineStages()
@@ -86,7 +109,7 @@ export default function ChatPage() {
       stageList.map((stage) => ({
         ...stage,
         detail: stage.description,
-        status: normalizeStageStatus('waiting'),
+        status: normalizeStageStatus('running'),
       })),
     )
 
@@ -102,7 +125,7 @@ export default function ChatPage() {
         {
           id: `assistant-${Date.now()}-status`,
           author: 'assistant',
-          text: 'I am mapping your idea into requirements, checking for missing details, and drafting a recommendation blueprint.',
+          text: 'I am mapping your idea into requirements and drafting a recommendation blueprint.',
         },
       ],
     }))
@@ -119,15 +142,34 @@ export default function ChatPage() {
         applyStageUpdate(update)
       })
 
+      if (blueprint?.source === 'fixture') {
+        setGenerationErrorTone('neutral')
+        setGenerationError(blueprint.message || 'Showing sample data because the backend is not reachable.')
+        setIsFixtureMode(true)
+      } else if (blueprint?.status === 'failed') {
+        setGenerationErrorTone('error')
+        setGenerationError(`${blueprint.failed_stage || 'Stage'} failed: ${blueprint.message || 'The blueprint generation failed.'}`)
+        setIsFixtureMode(false)
+      } else {
+        setGenerationError('')
+        setGenerationErrorTone('neutral')
+        setIsFixtureMode(false)
+      }
+
       setGeneratedBlueprint(blueprint)
+      if (blueprint?.stage_outputs?.length) {
+        setExpandedStages(Object.fromEntries(blueprint.stage_outputs.map((stage) => [stage.name, false])))
+      }
     } catch (error) {
       const message = error?.message || 'The blueprint generation failed.'
+      setGenerationErrorTone('error')
       setGenerationError(message)
       setPipelineStages((currentStages) =>
         currentStages.map((stage) => (
-          stage.status === 'running' ? { ...stage, status: 'failed', detail: 'Stage failed' } : stage
+          stage.status === 'In progress' ? { ...stage, status: 'failed', detail: 'Stage failed' } : stage
         )),
       )
+      setIsFixtureMode(false)
     } finally {
       setIsGenerating(false)
     }
@@ -150,12 +192,13 @@ export default function ChatPage() {
             <div className="space-y-2">
               {exampleIdeas.map((example) => (
                 <button
-                  key={example}
+                  key={example.text}
                   type="button"
-                  onClick={() => setPrompt(example)}
+                  onClick={() => setPrompt(example.text)}
                   className="w-full rounded-full border border-[#E4DCCB] bg-[#F6F1E7] px-3 py-3 text-left text-sm leading-6 text-[#1F1B16] transition-colors duration-200 hover:border-[#B5532F] hover:bg-[#FFFCF5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B5532F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FFFCF5]"
                 >
-                  {example}
+                  <span className="mb-1 block text-[10px] font-medium uppercase tracking-[0.14em] text-[#7A7064]">{example.category}</span>
+                  <span>{example.text}</span>
                 </button>
               ))}
             </div>
@@ -195,34 +238,14 @@ export default function ChatPage() {
                 </button>
               </div>
 
-              <div className="mt-6 rounded-[16px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Clarification Agent</p>
-                </div>
-
-                <div className="rounded-[14px] border border-[#E4DCCB] bg-[#FFFCF5] p-4">
-                  <p className="text-base font-medium text-[#1F1B16]">What outcome do you want to predict?</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {clarificationChoices.map((choice) => (
-                      <button
-                        key={choice}
-                        type="button"
-                        onClick={() => setPrompt(`I want to build a machine learning project that ${choice.toLowerCase()} for a real-world system.`)}
-                        className="rounded-full border border-[#E4DCCB] bg-[#F6F1E7] px-3 py-2 text-sm text-[#1F1B16] transition-colors duration-200 hover:border-[#B5532F] hover:bg-[#FFFCF5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B5532F] focus-visible:ring-offset-2"
-                      >
-                        {choice}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
               {pipelineStages.length > 0 && (
                 <div className="mt-6 rounded-[16px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Generation stages</p>
                     <span className="text-[10px] uppercase tracking-[0.14em] text-[#7A7064]">
-                      {pipelineStages.filter((stage) => stage.status === 'done').length} complete
+                      {isFixtureMode
+                        ? '0 of 8 complete'
+                        : `${pipelineStages.filter((stage) => stage.status === 'Implemented').length} of 8 complete`}
                     </span>
                   </div>
 
@@ -245,111 +268,157 @@ export default function ChatPage() {
               )}
 
               {generationError && (
-                <div className="mt-4 rounded-[14px] border border-[#A4422A] bg-[#FDEAE7] p-3 text-sm text-[#A4422A]">
+                <div
+                  className={`mt-4 rounded-[14px] border p-3 text-sm ${
+                    generationErrorTone === 'error'
+                      ? 'border-[#A4422A] bg-[#FDEAE7] text-[#A4422A]'
+                      : 'border-[#D7B98C] bg-[#F6EEDB] text-[#6F675F]'
+                  }`}
+                >
                   <div className="flex items-center justify-between gap-3">
                     <span>{generationError}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleGenerate(prompt)}
-                      className="rounded-full border border-[#A4422A] bg-white px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#A4422A] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A4422A] focus-visible:ring-offset-2"
-                    >
-                      Retry
-                    </button>
+                    {generationErrorTone === 'error' && (
+                      <button
+                        type="button"
+                        onClick={() => handleGenerate(prompt)}
+                        className="rounded-full border border-[#A4422A] bg-white px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#A4422A] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A4422A] focus-visible:ring-offset-2"
+                      >
+                        Retry
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
-
-              <div className="mt-8 space-y-3">
-                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Conversation</p>
-
-                <div className="space-y-3 rounded-[16px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
-                  {conversation.messages.map((message) => (
-                    <div key={message.id} className={`flex ${message.author === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div
-                        className={`max-w-[82%] rounded-[14px] px-4 py-3 text-sm leading-6 ${
-                          message.author === 'user'
-                            ? 'bg-[#1F1B16] text-[#FFFCF5]'
-                            : 'border border-[#E4DCCB] bg-[#FFFCF5] text-[#1F1B16]'
-                        }`}
-                      >
-                        {message.text}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
               {generatedBlueprint && (
                 <div className="mt-6 rounded-[18px] border border-[#E4DCCB] bg-[#FFFCF5] p-5">
                   <div className="mb-4 flex items-start justify-between gap-4">
                     <div>
                       <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Blueprint draft</p>
-                      <h3 className="mt-2 text-2xl text-[#1F1B16]">{generatedBlueprint.title}</h3>
+                      <h3 className="mt-2 text-2xl text-[#1F1B16]">{generatedBlueprint.title || 'Recommendation blueprint'}</h3>
                     </div>
-                    <span className="rounded-full border border-[#C9DCBE] bg-[#E9EFE2] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-[#5C7A4B]">
-                      Recommendation
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {generatedBlueprint.source === 'fixture' && (
+                        <span className="rounded-full border border-[#D7B98C] bg-[#F6EEDB] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-[#7A7064]">
+                          Sample data
+                        </span>
+                      )}
+                      <span className="rounded-full border border-[#C9DCBE] bg-[#E9EFE2] px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-[#5C7A4B]">
+                        Recommendation
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {['json', 'md', 'zip'].map((format) => (
+                      <button
+                        key={format}
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            setExportState('working')
+                            await exportBlueprint(generatedBlueprint.id || 'fixture-blueprint', format)
+                            setExportState('done')
+                          } catch (error) {
+                            setExportState('failed')
+                            setGenerationError(error?.message || 'The export failed.')
+                            setGenerationErrorTone('error')
+                          }
+                        }}
+                        className="rounded-full border border-[#E4DCCB] bg-[#F6F1E7] px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#1F1B16]"
+                      >
+                        {format.toUpperCase()} export
+                      </button>
+                    ))}
+                    {exportState === 'working' && <span className="text-[10px] uppercase tracking-[0.12em] text-[#7A7064]">Preparing export…</span>}
                   </div>
 
                   <div className="space-y-5">
                     <section className="rounded-[14px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
-                      <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Problem statement and objectives</h4>
-                      <p className="mt-3 text-sm leading-7 text-[#1F1B16]">{generatedBlueprint.problemStatement}</p>
-                      <ul className="mt-3 space-y-2 text-sm text-[#1F1B16]">
-                        {generatedBlueprint.objectives.map((objective) => (
-                          <li key={objective} className="flex gap-2">
-                            <span className="mt-1 h-2 w-2 rounded-full bg-[#B5532F]" aria-hidden="true" />
-                            <span>{objective}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Problem statement</h4>
+                      <p className="mt-3 text-sm leading-7 text-[#1F1B16]">{generatedBlueprint.problemStatement || generatedBlueprint.problem_statement || 'No problem statement is available.'}</p>
                     </section>
 
                     <section className="rounded-[14px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
                       <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">ML task</h4>
-                      <p className="mt-3 text-sm font-medium text-[#1F1B16]">{generatedBlueprint.task}</p>
+                      <p className="mt-3 text-sm font-medium text-[#1F1B16]">{generatedBlueprint.task || generatedBlueprint.ml_task || 'Other'}</p>
                     </section>
 
                     <section className="rounded-[14px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
-                      <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Dataset requirements and possible sources</h4>
-                      <p className="mt-3 text-sm leading-7 text-[#1F1B16]">{generatedBlueprint.datasetRequirements}</p>
-                      <ul className="mt-3 flex flex-wrap gap-2">
-                        {generatedBlueprint.possibleSources.map((source) => (
-                          <li key={source} className="rounded-full border border-[#E4DCCB] bg-[#FFFCF5] px-3 py-1.5 text-xs text-[#1F1B16]">
-                            {source}
-                          </li>
+                      <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Datasets</h4>
+                      <div className="mt-3 grid gap-3">
+                        {(generatedBlueprint.datasets || []).map((dataset) => (
+                          <button
+                            key={`${dataset.name}-${dataset.source_url}`}
+                            type="button"
+                            onClick={() => setSelectedDataset(dataset)}
+                            className="w-full rounded-[12px] border border-[#E4DCCB] bg-[#FFFCF5] p-3 text-left"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-semibold text-[#1F1B16]">{dataset.name}</p>
+                              <span className={`rounded-full border px-2 py-1 text-[9px] font-medium uppercase tracking-[0.12em] ${dataset.verified ? 'border-[#5C7A4B] bg-[#E9EFE2] text-[#5C7A4B]' : 'border-[#7A7064] bg-[#F3EFE8] text-[#7A7064]'}`}>
+                                {dataset.verified ? 'Verified' : 'Unverified'}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm leading-6 text-[#4D453E]">{dataset.reason}</p>
+                          </button>
                         ))}
-                      </ul>
+                        {(!generatedBlueprint.datasets || generatedBlueprint.datasets.length === 0) && (
+                          <p className="text-sm text-[#4D453E]">No verified preview is available for this blueprint.</p>
+                        )}
+                      </div>
+
+                      {selectedDataset && (
+                        <div className="mt-4 rounded-[12px] border border-[#E4DCCB] bg-[#FFFCF5] p-4">
+                          <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Dataset detail</p>
+                          <h5 className="mt-2 text-lg text-[#1F1B16]">{selectedDataset.name}</h5>
+                          <div className="mt-3 space-y-2 text-sm text-[#1F1B16]">
+                            <p><span className="font-medium">Source:</span> <a href={selectedDataset.source_url} target="_blank" rel="noreferrer" className="text-[#B5532F] underline">{selectedDataset.source_url}</a></p>
+                            <p><span className="font-medium">Reason:</span> {selectedDataset.reason}</p>
+                            <p><span className="font-medium">Status:</span> {selectedDataset.verified ? 'Verified' : 'Unverified'}</p>
+                          </div>
+                        </div>
+                      )}
                     </section>
 
                     <section className="rounded-[14px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
-                      <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Preprocessing recommendations</h4>
-                      <ul className="mt-3 space-y-2 text-sm text-[#1F1B16]">
-                        {generatedBlueprint.preprocessingRecommendations.map((item) => (
-                          <li key={item} className="flex gap-2">
-                            <span className="mt-1 h-2 w-2 rounded-full bg-[#5C7A4B]" aria-hidden="true" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-
-                    <section className="rounded-[14px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
-                      <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Feature engineering strategy</h4>
-                      <ul className="mt-3 space-y-2 text-sm text-[#1F1B16]">
-                        {generatedBlueprint.featureEngineeringStrategy.map((item) => (
-                          <li key={item} className="flex gap-2">
-                            <span className="mt-1 h-2 w-2 rounded-full bg-[#B5532F]" aria-hidden="true" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-
-                    <section className="rounded-[14px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
-                      <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Candidate algorithms with the reasons for each</h4>
+                      <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Stage-by-stage explanation</h4>
                       <div className="mt-3 space-y-3">
-                        {generatedBlueprint.candidateAlgorithms.map((algorithm) => (
+                        {stageOutputs.map((stage) => {
+                          const isOpen = Boolean(expandedStages[stage.name])
+                          return (
+                            <div key={stage.name} className="rounded-[12px] border border-[#E4DCCB] bg-[#FFFCF5] p-3">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedStages((current) => ({ ...current, [stage.name]: !isOpen }))}
+                                className="flex w-full items-center justify-between gap-3 text-left"
+                              >
+                                <div>
+                                  <p className="text-sm font-semibold text-[#1F1B16]">{stage.name.replace(/_/g, ' ')}</p>
+                                  <p className="text-[10px] uppercase tracking-[0.12em] text-[#7A7064]">{stage.status}</p>
+                                </div>
+                                <span className="text-sm text-[#7A7064]">{isOpen ? '−' : '+'}</span>
+                              </button>
+                              {isOpen && (
+                                <div className="mt-3 border-t border-[#E4DCCB] pt-3 text-sm leading-6 text-[#1F1B16]">
+                                  <p>{stage.explanation}</p>
+                                  {stage.data && Object.keys(stage.data).length > 0 && (
+                                    <pre className="mt-3 overflow-x-auto rounded-[8px] bg-[#F6F1E7] p-3 text-[11px] text-[#4D453E]">
+                                      {JSON.stringify(stage.data, null, 2)}
+                                    </pre>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </section>
+
+                    <section className="rounded-[14px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
+                      <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Candidate algorithms</h4>
+                      <div className="mt-3 space-y-3">
+                        {(generatedBlueprint.candidateAlgorithms || []).map((algorithm) => (
                           <div key={algorithm.name} className="rounded-[12px] border border-[#E4DCCB] bg-[#FFFCF5] p-3">
                             <p className="text-sm font-semibold text-[#1F1B16]">{algorithm.name}</p>
                             <p className="mt-1 text-sm leading-6 text-[#4D453E]">{algorithm.reason}</p>
@@ -361,7 +430,7 @@ export default function ChatPage() {
                     <section className="rounded-[14px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
                       <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Evaluation metrics</h4>
                       <ul className="mt-3 flex flex-wrap gap-2">
-                        {generatedBlueprint.evaluationMetrics.map((metric) => (
+                        {(generatedBlueprint.evaluationMetrics || []).map((metric) => (
                           <li key={metric} className="rounded-full border border-[#E4DCCB] bg-[#FFFCF5] px-3 py-1.5 text-xs text-[#1F1B16]">
                             {metric}
                           </li>
@@ -371,17 +440,17 @@ export default function ChatPage() {
 
                     <section className="rounded-[14px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
                       <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Proposed training and evaluation pipeline</h4>
-                      <p className="mt-3 text-sm leading-7 text-[#1F1B16]">{generatedBlueprint.trainingPipeline}</p>
+                      <p className="mt-3 text-sm leading-7 text-[#1F1B16]">{generatedBlueprint.trainingPipeline || generatedBlueprint.training_pipeline || 'No training pipeline was produced.'}</p>
                     </section>
 
                     <section className="rounded-[14px] border border-[#E4DCCB] bg-[#F6F1E7] p-4">
                       <h4 className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#7A7064]">Deployment considerations</h4>
-                      <p className="mt-3 text-sm leading-7 text-[#1F1B16]">{generatedBlueprint.deploymentConsiderations}</p>
+                      <p className="mt-3 text-sm leading-7 text-[#1F1B16]">{generatedBlueprint.deploymentConsiderations || generatedBlueprint.deployment_considerations || 'No deployment details were produced.'}</p>
                     </section>
                   </div>
 
                   <div className="sticky bottom-2 mt-6 rounded-[12px] border border-[#D9C7B1] bg-[#F6F1E7] px-4 py-3 text-xs uppercase tracking-[0.14em] text-[#4D453E]">
-                    {generatedBlueprint.note}
+                    {generatedBlueprint.note || 'This blueprint is a recommendation and should be reviewed before implementation.'}
                   </div>
                 </div>
               )}
@@ -421,7 +490,7 @@ export default function ChatPage() {
             </div>
 
             <div className="mt-5 rounded-[14px] border border-[#E4DCCB] bg-[#FFFCF5] p-4 text-sm leading-6 text-[#7A7064]">
-              The project plan includes a six-document knowledge base, requirement analysis, clarification when details are missing, and a review step before blueprint generation.
+              The project plan includes a curated knowledge base, requirement analysis, retrieval and recommendation, and a review step before blueprint generation.
             </div>
           </aside>
         </div>

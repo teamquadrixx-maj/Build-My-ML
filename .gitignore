@@ -16,9 +16,11 @@ Users/
 __pycache__/
 **/__pycache__/
 *.py[cod]
+*.pyc
 *.db
 *.sqlite3
 *.log
+node_modules/
 
 # app generated storage
 backend/buildmyml.db

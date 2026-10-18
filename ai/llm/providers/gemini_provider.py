@@ -1,6 +1,9 @@
 import json
 import os
+from pathlib import Path
 from typing import Any
+
+from dotenv import load_dotenv
 
 try:
     import google.generativeai as genai
@@ -9,7 +12,8 @@ except Exception:  # pragma: no cover
 
 
 class GeminiProvider:
-    def __init__(self, api_key: str | None = None, model_name: str = "gemini-2.5-flash"):
+    def __init__(self, api_key: str | None = None, model_name: str = "gemini-3.8-flash"):
+        load_dotenv(Path(__file__).resolve().parents[3] / "backend" / ".env")
         self.model_name = model_name
         self.api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
